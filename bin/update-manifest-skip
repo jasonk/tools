@@ -1,0 +1,47 @@
+#!/usr/local/bin/perl -w
+use strict;
+use warnings;
+use IO::File;
+use FindBin qw( $Bin );
+
+my %groups = ();
+my @groups = ();
+my %seen = ();
+my $group;
+
+process_files( "$Bin/../defaults/MANIFEST.SKIP", 'MANIFEST.SKIP', @ARGV );
+
+sub process_files {
+    for my $file ( @_ ) {
+        if ( ! -f $file ) { next }
+        process( IO::File->new( $file )->getlines );
+    }
+}
+
+sub process {
+    my @sources = @_;
+    for ( @sources ) {
+        chomp; s/^\s*|\s*$//;
+        if ( ! /\S/ ) { next }
+
+        if ( /^\s*(#.*?)\s*$/ ) {
+            $group = $1;
+            if ( ! $groups{ $group } ) {
+                $groups{ $group } = [];
+                push( @groups, $group );
+            }
+        } else {
+            s/\s.*//;
+            if ( ! /\S/ ) { next }
+            if ( $seen{ $_ }++ ) { next }
+            push( @{ $groups{ $group } }, $_ );
+        }
+    }
+}
+
+my $fh = IO::File->new( '>MANIFEST.SKIP' );
+for my $group ( @groups ) {
+    my @files = @{ $groups{ $group } || [] };
+    if ( ! @files ) { next }
+    $fh->print( map { "$_\n" } $group, @files, '' );
+}

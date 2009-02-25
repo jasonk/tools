@@ -1,0 +1,42 @@
+# Avoid version control files.
+\bRCS\b
+\bCVS\b
+\bSCCS\b
+,v$
+\B\.svn\b
+\b_darcs\b
+\B\.git\b
+
+# Avoid Makemaker generated and utility files.
+\bMANIFEST\.bak
+\bMakefile$
+\bblib/
+\bMakeMaker-\d
+\bpm_to_blib\.ts$
+\bpm_to_blib$
+\bblibdirs\.ts$         # 6.18 through 6.25 generated this
+
+# Avoid Module::Build generated and utility files.
+\bBuild$
+\b_build/
+\bBuild\.bat$
+
+# Avoid temp and backup files.
+~$
+\.old$
+\#$
+\b\.#
+\.bak$
+\.sw.$
+\b\.DS_Store$
+
+# Avoid Devel::Cover files.
+\bcover_db\b
+
+# Don't include utility configuration files
+\B\.shipit$
+\B\.prove$
+\B\.gitignore$
+
+# Don't include the MANIFEST.SKIP file itself
+^MANIFEST\.SKIP$

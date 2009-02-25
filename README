@@ -1,0 +1,17 @@
+Jason Kohles - Tools
+--------------------
+Copyright 1995-2009 Jason Kohles <email@jasonkohles.com>
+
+-------------------------------------------------------------------------------
+
+These are various tools and utilities that I've written to make my life easier,
+provided here in case they are useful to anybody else.  The tools listed here
+are all released under the Perl license, so you can use, modify and
+redistribute them under the same terms as Perl.
+
+-------------------------------------------------------------------------------
+
+bin/update-manifest-skip
+    Updates a MANIFEST.SKIP file from one or more sources (starting with the
+    one in defaults/MANIFEST.SKIP).
+
