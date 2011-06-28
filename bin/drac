@@ -1,0 +1,131 @@
+#!/usr/bin/env perl
+use strict; use warnings;
+#
+# Copyright 2011 Jason Kohles <email@jasonkohles.com>
+#
+#   A command-line tool for launching the DRAC Virtual Console, without
+#   having to go through a web browser.  Especially useful on OS X and Linux
+#   where the DRAC web interface doesn't always work so great.
+#
+# Released under the Perl license, so you can use, modify and redistribute
+# under the same terms as Perl.
+#
+
+use IO::Socket::SSL;
+use Getopt::Long;
+use URI::Escape qw( uri_escape );
+use HTTP::Response;
+
+my $debug = 0;
+my ( $host, $cookie );
+my $user = 'root';
+my $pass = 'calvin';
+my $title;
+GetOptions(
+    'host|h=s'      => \$host,
+    'cookie=s'      => \$cookie,
+    'debug|d!'      => \$debug,
+    'user|u=s'      => \$user,
+    'password|p=s'  => \$pass,
+    'title|t=s'     => \$title,
+) or usage();
+$host ||= shift || die "Must specify hostname to connect to\n";
+
+sub usage {
+print <<"END";
+Usage: $0 [options] <hostname>
+
+    Available Options:
+        --host=<host>   Specify hostname with named argument.
+        --cookie=<id>   Provide a session cookie (not normally needed).
+        --debug         Enable debugging
+        --user=<user>   Specify username to login to DRAC as (default 'root')
+        --pass=<pass>   Specify password to login to DRAC (default 'calvin')
+        --title=<title> Specify a title for the Remote Console window.
+
+END
+exit;
+}
+
+sub request {
+    my ( $method, $path, $headers, $body ) = @_;
+
+    my $sock = IO::Socket::SSL->new( $host.':https' );
+
+    my $req = join( "\r\n" => (
+        "$method $path HTTP/1.1",
+        "Host: $host",
+        "User_Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.6; rv:5.0) Gecko/20100101 Firefox/5.0",
+        "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept_Language: en-us,en;q=0.5",
+        "Accept_Encoding: gzip, deflate",
+        "Accept_Charset: ISO-8859-1,utf-8;q=0.7,*;q=0.7",
+        "Connection: close",
+        "Pragma: no-cache",
+        "Cache_Control: no-cache",
+        "Referer: https://$host/index.html",
+        ( $cookie ? ( "Cookie: _appwebSessionId_=$cookie" ) : () ),
+        @{ $headers || [] },
+    ) );
+    if ( $body ) {
+        $req .= join( "\r\n" => (
+            "Content-Type: application/x-www-form-urlencoded; charset=UTF-8",
+            "Content-Length: ".length( $body ),
+            '',
+            $body,
+            '',
+        ) );
+    } else {
+        $req .= "\r\n\r\n";
+    }
+
+    print "### REQUEST ###\n".$req."###############\n" if $debug;
+
+    print $sock $req;
+
+    my $res = join( '', <$sock> );
+
+    print "### RESPONSE ###\n".$res."################\n" if $debug;
+
+    return $res;
+}
+
+unless ( $cookie ) {
+    request( GET => '/login.html' ) =~ /^Set-Cookie: _appwebSessionId_=([^;]+);/m
+        or die "Didn't get a session cookie\n";
+    $cookie = $1;
+}
+
+my $loggedin = request(
+    POST => '/data/login',
+    [ "Referer: https://$host/login.html" ],
+    sprintf( 'user=%s&password=%s', $user, $pass ),
+);
+$loggedin =~ m{<status>(.*)</status>}
+    or die "Received invalid login response (no status)\n";
+$1 eq 'ok' or die "Login attempt failed (status=$1)\n";
+$loggedin =~ m{<authResult>(.*)</authResult>}
+    or die "Received invalid login response (no authResult)\n";
+$1 == 0 or die "Login attempt failed (authResult=$1)\n";
+
+$title = uri_escape( $title || 'DRAC: '.$host, '^\w' );
+
+my $jnlp = HTTP::Response->parse(
+    request( GET => '/viewer.jnlp('.join( '@' => (
+        $host,          # hostname/ipaddr
+        0,              # ipv6address
+        $title,         # title
+        time * 1000,    # cache-buster
+    ) ).')' )
+);
+my $ct = $jnlp->header( 'Content-Type' )
+    or die "Invalid viewer.jnlp (no Content-Type)\n";
+$ct eq 'application/x-java-jnlp-file'
+    or die "Invalid viewer.jnlp (Content-Type: $ct)\n";
+
+my $outfile = "/tmp/viewer-$host.jnlp";
+open( my $out, '>', $outfile );
+print $out $jnlp->content;
+close( $out );
+
+exec( 'javaws', '-Xnosplash', $outfile );

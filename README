@@ -15,3 +15,7 @@ bin/update-manifest-skip
     Updates a MANIFEST.SKIP file from one or more sources (starting with the
     one in defaults/MANIFEST.SKIP).
 
+bin/drac
+    A command-line tool for launching the DRAC Virtual Console, without
+    having to go through a web browser.  Especially useful on OS X and Linux
+    where the DRAC web interface doesn't always work so great.
